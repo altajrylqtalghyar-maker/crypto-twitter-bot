@@ -2,7 +2,7 @@ import os
 import requests
 import tweepy
 from datetime import datetime
-
+import time
 # =========================
 # 1) إعداد عميل تويتر (X) باستخدام API v2
 # =========================
@@ -100,5 +100,15 @@ def post_daily_tweet():
     except Exception as e:
         print("Error posting tweet:", e)
 
+def run_forever():
+    """تشغيل البوت في حلقة لا نهائية مع فاصل زمني بين التغريدات."""
+    while True:
+        print("🚀 تشغيل post_daily_tweet()")
+        post_daily_tweet()
+        print("😴 انتظار 6 ساعات قبل التغريدة القادمة...")
+        # 6 ساعات = 6 * 60 * 60 ثانية
+        time.sleep(6 * 60 * 60)
+
+
 if __name__ == "__main__":
-    post_daily_tweet()
+    run_forever()
