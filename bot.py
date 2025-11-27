@@ -63,7 +63,6 @@ def get_crypto_news():
 
     return "\n\n".join(news_list)
 
-
 # =========================
 # 3) تكوين نص التغريدة
 # =========================
@@ -84,7 +83,6 @@ def build_tweet():
         tweet = tweet[:267] + "..."
     return tweet.strip()
 
-
 # =========================
 # 4) نشر التغريدة
 # =========================
@@ -101,7 +99,6 @@ def post_daily_tweet():
         print("✅ تم إرسال التغريدة بنجاح، رقم التغريدة:", response.data.get("id"))
     except Exception as e:
         print("Error posting tweet:", e)
-
 
 if __name__ == "__main__":
     post_daily_tweet()
