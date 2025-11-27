@@ -1,93 +1,107 @@
 import os
 import requests
 import tweepy
-from dotenv import load_dotenv
-
-load_dotenv()
+from datetime import datetime
 
 # =========================
-# 1) تهيئة تويتر (X)
+# 1) إعداد عميل تويتر (X) باستخدام API v2
 # =========================
-def get_twitter_api():
-    api_key = os.getenv("API_KEY")
-    api_secret = os.getenv("API_KEY_SECRET")
-    access_token = os.getenv("ACCESS_TOKEN")
-    access_token_secret = os.getenv("ACCESS_TOKEN_SECRET")
 
-    if not all([api_key, api_secret, access_token, access_token_secret]):
-        print("❌ مفاتيح تويتر غير مكتملة في Environment Variables.")
-        return None
+# مهم: هذه القيم يجب أن تكون موجودة في Environment Variables في Render:
+# API_KEY
+# API_SECRET
+# ACCESS_TOKEN
+# ACCESS_TOKEN_SECRET
+# BEARER_TOKEN
 
-    auth = tweepy.OAuthHandler(api_key, api_secret)
-    auth.set_access_token(access_token, access_token_secret)
-    api = tweepy.API(auth)
-    return api
+client = tweepy.Client(
+    bearer_token=os.getenv("BEARER_TOKEN"),
+    consumer_key=os.getenv("API_KEY"),
+    consumer_secret=os.getenv("API_SECRET"),
+    access_token=os.getenv("ACCESS_TOKEN"),
+    access_token_secret=os.getenv("ACCESS_TOKEN_SECRET"),
+    wait_on_rate_limit=True
+)
 
 # =========================
-# 2) جلب الأخبار من CryptoPanic فقط
+# 2) جلب الأخبار من CryptoPanic (اختياري)
 # =========================
+
 def get_crypto_news():
+    """
+    يجلب آخر 3 أخبار من CryptoPanic إذا كان CRYPTOPANIC_TOKEN موجود.
+    إذا لم يتم وضع التوكن في Environment، يرجع نص افتراضي.
+    """
     token = os.getenv("CRYPTOPANIC_TOKEN")
     if not token:
-        # لو ما عندك توكن للأخبار
         return "لم يتم إعداد مصدر الأخبار بعد."
 
-    url = f"https://cryptopanic.com/api/v1/posts/?auth_token={token}&kind=news"
+    url = "https://cryptopanic.com/api/v1/posts/"
+    params = {
+        "auth_token": token,
+        "kind": "news",
+        "public": "true"
+    }
+
     try:
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-
-        results = data.get("results", [])[:3]
-        if not results:
-            return "لا توجد أخبار متاحة حالياً."
-
-        news_list = []
-        for item in results:
-            title = item.get("title", "خبر بدون عنوان")
-            link = item.get("url", "")
-            news_list.append(f"- {title}\n{link}")
-
-        return "\n\n".join(news_list)
-
     except Exception as e:
         print("CryptoPanic error:", e)
         return "تعذّر جلب الأخبار حالياً."
 
+    results = data.get("results", [])[:3]
+    if not results:
+        return "لا توجد أخبار متاحة حالياً."
+
+    news_list = []
+    for item in results:
+        title = item.get("title", "خبر بدون عنوان")
+        link = item.get("url", "")
+        news_list.append(f"- {title}\n{link}")
+
+    return "\n\n".join(news_list)
+
+
 # =========================
 # 3) تكوين نص التغريدة
 # =========================
+
 def build_tweet():
+    today = datetime.utcnow().strftime("%Y-%m-%d")
     news = get_crypto_news()
 
-    tweet = f"""🔔 ملخّص سوق العملات الرقمية اليوم
+    tweet = f"""🔔 ملخّص سوق العملات الرقمية اليوم - {today}
 
 📰 أهم الأخبار:
 {news}
 
 #Crypto #Bitcoin
 """
+    # تأكد أن الطول أقل من 280 حرف (حد تويتر)
+    if len(tweet) > 270:
+        tweet = tweet[:267] + "..."
     return tweet.strip()
 
+
 # =========================
-# 4) نشر التغريدة (أو طباعة الخطأ)
+# 4) نشر التغريدة
 # =========================
+
 def post_daily_tweet():
     tweet = build_tweet()
+
     print("\n===== Tweet content =====\n")
     print(tweet)
     print("\n=========================\n")
 
-    api = get_twitter_api()
-    if api is None:
-        # لا نحاول الإرسال إذا المفاتيح ناقصة
-        return
-
     try:
-        api.update_status(tweet)
-        print("✅ تم إرسال التغريدة إلى X (إذا كانت صلاحيات حساب المطوّر تسمح بذلك).")
+        response = client.create_tweet(text=tweet)
+        print("✅ تم إرسال التغريدة بنجاح، رقم التغريدة:", response.data.get("id"))
     except Exception as e:
         print("Error posting tweet:", e)
+
 
 if __name__ == "__main__":
     post_daily_tweet()
